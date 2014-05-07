@@ -15,7 +15,6 @@ import qualified Pipes.Prelude as Pipes
 -- import qualified Pipes.Lift as Pipes
 
 class Ord a => StreamSummary s a | s -> a where
-  toList :: s -> [(a, Integer)]
   size :: s -> Int
   member :: a -> s -> Bool
   insert :: s -> a -> s
@@ -34,7 +33,6 @@ class Ord a => StreamSummary s a | s -> a where
 --  ... spacesaving_algorithm_in_haskell_approximate_the/
 
 instance Ord a => StreamSummary (M.Map a Integer) a where
-  toList = M.toList
   size = M.size
   member = M.member
   insert m v = M.insert v 1 m
