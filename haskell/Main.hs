@@ -37,13 +37,13 @@ instance Ord a => StreamSummary (M.Map a Integer) a where
   member = M.member
   insert m x = M.insert x 1 m
   incr m x = M.adjust (+ 1) x m
-  updateLowest m s = M.insert s (lowestValue + 1) lowestKeyRemoved
+  updateLowest m x = M.insert x (lowestValue + 1) lowestKeyRemoved
     where
       (lowestKey, lowestValue) = minimum' m
       lowestKeyRemoved = M.delete lowestKey m
 
       comp :: Ord a => (t, a) -> (t1, a) -> Ordering
-      comp (_, x) (_, y) = compare x y
+      comp (_, x') (_, y) = compare x' y
 
       minimum' :: (Ord a) => M.Map k a -> (k, a)
       minimum' = minimumBy comp . M.toList
