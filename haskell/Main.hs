@@ -55,8 +55,17 @@ spaceSavingOnList ss0 k = foldl' step ss0
   where
     step ss x = update k ss x
 
-spaceSavingOnPipe :: (St.MonadState s m, StreamSummary s a) => Int -> Proxy () a () s m b
-spaceSavingOnPipe k = go
+spaceSavingOnPipe :: (Monad m, StreamSummary s a) => s -> Int -> Proxy () a () s m b
+spaceSavingOnPipe ss0 k = go ss0
+  where
+    step ss x = update k ss x
+    go ss = do
+      ss' <- step ss `fmap` await
+      yield ss'
+      go ss'
+
+spaceSavingOnPipeST :: (St.MonadState s m, StreamSummary s a) => Int -> Proxy () a () s m b
+spaceSavingOnPipeST k = go
   where
     step ss x = update k ss x
     go = do
@@ -71,5 +80,6 @@ main = do
       ss0 = M.empty :: MapSummary String
       k = 3
   print $ spaceSavingOnList ss0 k $ input
-  (`St.evalStateT` ss0) . runEffect $ each input >-> spaceSavingOnPipe k >-> Pipes.print
+  runEffect $ each input >-> spaceSavingOnPipe ss0 k >-> Pipes.print
+  (`St.evalStateT` ss0) . runEffect $ each input >-> spaceSavingOnPipeST k >-> Pipes.print
   -- Pipes.evalStateP ss0 ...
