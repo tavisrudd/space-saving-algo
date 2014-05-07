@@ -35,8 +35,8 @@ class Ord a => StreamSummary s a | s -> a where
 instance Ord a => StreamSummary (M.Map a Integer) a where
   size = M.size
   member = M.member
-  insert m v = M.insert v 1 m
-  incr m v = M.adjust (+ 1) v m
+  insert m x = M.insert x 1 m
+  incr m x = M.adjust (+ 1) x m
   updateLowest m s = M.insert s (lowestValue + 1) lowestKeyRemoved
     where
       (lowestKey, lowestValue) = minimum' m
