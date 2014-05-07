@@ -1,3 +1,4 @@
+{-# LANGUAGE PackageImports  #-}
 {-# LANGUAGE FunctionalDependencies  #-}
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
@@ -5,7 +6,13 @@
 module Main where
 
 import qualified Data.Map.Lazy as M
-import Data.List (minimumBy)
+import Data.List (minimumBy, foldl')
+
+import qualified "mtl" Control.Monad.State as St
+
+import Pipes
+import qualified Pipes.Prelude as Pipes
+-- import qualified Pipes.Lift as Pipes
 
 class Ord a => StreamSummary s a | s -> a where
   toList :: s -> [(a, Integer)]
@@ -14,6 +21,12 @@ class Ord a => StreamSummary s a | s -> a where
   insert :: s -> a -> s
   incr :: s -> a -> s
   updateLowest :: s -> a -> s
+
+  update :: Int -> s -> a -> s
+  update k ss x
+      | member x ss = incr ss x
+      | size ss < k = insert ss x
+      | otherwise   = updateLowest ss x
 
 -- derived from https://github.com/Cipherwraith/space-saving
 -- see discussion at
@@ -40,20 +53,25 @@ instance Ord a => StreamSummary (M.Map a Integer) a where
 type MapSummary a = M.Map a Integer
 
 spaceSavingOnList :: (Ord a, StreamSummary ss a, a ~ a) => ss -> Int -> [a] -> ss
-spaceSavingOnList ss0 k = spaceSave ss0
+spaceSavingOnList ss0 k = foldl' step ss0
   where
-    spaceSave ss [] = ss
-    spaceSave ss (x:xs)
-      | member x ss = spaceSave (incr ss x) xs
-      | size ss < k = spaceSave (insert ss x) xs
-      | otherwise   = spaceSave (updateLowest ss x) xs
+    step ss x = update k ss x
 
--- spaceSavingOnPipe ... using pipes library
+spaceSavingOnPipe :: (St.MonadState s m, StreamSummary s a) => Int -> Proxy () a () s m b
+spaceSavingOnPipe k = go
+  where
+    step ss x = update k ss x
+    go = do
+      x <- await
+      lift $ St.modify (`step` x)
+      yield =<< St.get
+      go
 
 main :: IO ()
 main = do
-  let contents = "aa bb ab aa aa cc dd cc"
-      input = words contents
+  let input = words "aa bb ab aa aa cc dd cc"
       ss0 = M.empty :: MapSummary String
       k = 3
   print $ spaceSavingOnList ss0 k $ input
+  (`St.evalStateT` ss0) . runEffect $ each input >-> spaceSavingOnPipe k >-> Pipes.print
+  -- Pipes.evalStateP ss0 ...

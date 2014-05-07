@@ -24,6 +24,7 @@ executable space-saving
                        pipes == 4.1.1,
                        containers == 0.5.*,
                        QuickCheck == 2.7.*,
+                       mtl,
                        criterion
   -- hs-source-dirs:      
   default-language:    Haskell2010
