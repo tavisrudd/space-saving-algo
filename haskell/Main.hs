@@ -51,14 +51,15 @@ instance Ord a => StreamSummary (M.Map a Integer) a where
 type MapSummary a = M.Map a Integer
 
 spaceSavingOnList :: (Ord a, StreamSummary ss a, a ~ a) => ss -> Int -> [a] -> ss
-spaceSavingOnList ss0 k = foldl' step ss0
-  where
-    step ss x = update k ss x
+spaceSavingOnList ss0 k = foldl' (update k) ss0
+
+spaceSavingScan :: (Ord a, StreamSummary ss a, a ~ a) => ss -> Int -> [a] -> [ss]
+spaceSavingScan ss0 k = scanl (update k) ss0
 
 spaceSavingOnPipe :: (Monad m, StreamSummary s a) => s -> Int -> Proxy () a () s m b
 spaceSavingOnPipe ss0 k = go ss0
   where
-    step ss x = update k ss x
+    step = update k
     go ss = do
       ss' <- step ss `fmap` await
       yield ss'
@@ -67,7 +68,7 @@ spaceSavingOnPipe ss0 k = go ss0
 spaceSavingOnPipeST :: (St.MonadState s m, StreamSummary s a) => Int -> Proxy () a () s m b
 spaceSavingOnPipeST k = go
   where
-    step ss x = update k ss x
+    step = update k
     go = do
       x <- await
       lift $ St.modify (`step` x)
@@ -80,6 +81,7 @@ main = do
       ss0 = M.empty :: MapSummary String
       k = 3
   print $ spaceSavingOnList ss0 k $ input
+  print $ spaceSavingScan ss0 k $ input
   runEffect $ each input >-> spaceSavingOnPipe ss0 k >-> Pipes.print
   (`St.evalStateT` ss0) . runEffect $ each input >-> spaceSavingOnPipeST k >-> Pipes.print
   -- Pipes.evalStateP ss0 ...
