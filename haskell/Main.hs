@@ -52,7 +52,7 @@ instance Ord a => StreamSummary (M.Map a Integer) where
       minimum' :: (Ord a) => M.Map k a -> (k, a)
       minimum' = minimumBy comp . M.toList
 
--- | It is now legal to do specialize on the value type like this:
+-- | It is now legal to specialize on the value type like this:
 -- instance StreamSummary (M.Map Int Integer) where
 --   type Elem (M.Map Int Integer) = Int
 --   ...
@@ -63,7 +63,7 @@ spaceSavingOnList ss0 k = foldl' (update k) ss0
 spaceSavingScan :: StreamSummary s => s -> Int -> [Elem s] -> [s]
 spaceSavingScan ss0 k = (drop 1) . scanl (update k) ss0
 
-spaceSavingOnPipe :: (Monad m, StreamSummary s) => s -> Int -> Proxy () (Elem s) () s m r
+spaceSavingOnPipe :: (Monad m, StreamSummary s) => s -> Int -> Pipe (Elem s) s m r
 spaceSavingOnPipe ss0 k = go ss0
   where
     step = update k
@@ -73,7 +73,7 @@ spaceSavingOnPipe ss0 k = go ss0
       go ss'
 
 spaceSavingOnPipeST ::
-  (St.MonadState s m, StreamSummary s) => Int -> Proxy () (Elem s) () s m r
+  (St.MonadState s m, StreamSummary s) => Int -> Pipe (Elem s) s m r
 spaceSavingOnPipeST k = go
   where
     step = update k
