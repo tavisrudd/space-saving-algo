@@ -12,7 +12,7 @@ import qualified "mtl" Control.Monad.State as St
 import Pipes
 import qualified Pipes.Prelude as Pipes
 
-class Ord a => StreamSummary s a | s -> a where
+class StreamSummary s a | s -> a where
   size :: s -> Int
   member :: a -> s -> Bool
   insert :: s -> a -> s
@@ -48,11 +48,11 @@ instance Ord a => StreamSummary (M.Map a Integer) a where
 
 type MapSummary a = M.Map a Integer
 
-spaceSavingOnList :: (Ord a, StreamSummary ss a) => ss -> Int -> [a] -> ss
+spaceSavingOnList :: (StreamSummary ss a) => ss -> Int -> [a] -> ss
 spaceSavingOnList ss0 k = foldl' (update k) ss0
 
-spaceSavingScan :: (Ord a, StreamSummary ss a) => ss -> Int -> [a] -> [ss]
-spaceSavingScan ss0 k = scanl (update k) ss0
+spaceSavingScan :: (StreamSummary ss a) => ss -> Int -> [a] -> [ss]
+spaceSavingScan ss0 k = (drop 1) . scanl (update k) ss0
 
 spaceSavingOnPipe :: (Monad m, StreamSummary s a) => s -> Int -> Proxy () a () s m b
 spaceSavingOnPipe ss0 k = go ss0
