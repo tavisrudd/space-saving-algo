@@ -1,7 +1,6 @@
+{-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE PackageImports  #-}
-{-# LANGUAGE FunctionalDependencies  #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE FlexibleInstances  #-}
 module Main where
 
