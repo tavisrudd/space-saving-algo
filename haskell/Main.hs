@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE PackageImports  #-}
 {-# LANGUAGE FunctionalDependencies  #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
@@ -12,25 +13,31 @@ import qualified "mtl" Control.Monad.State.Strict as St
 import Pipes
 import qualified Pipes.Prelude as Pipes
 
-class StreamSummary s a | s -> a where
-  size :: s -> Int
-  member :: a -> s -> Bool
-  insert :: s -> a -> s
-  incr :: s -> a -> s
-  updateLowest :: s -> a -> s
-
-  update :: Int -> s -> a -> s
-  update k ss x
-      | member x ss = incr ss x
-      | size ss < k = insert ss x
-      | otherwise   = updateLowest ss x
-
 -- derived from https://github.com/Cipherwraith/space-saving
 -- see discussion at
 -- http://www.reddit.com/r/haskell/comments/1sj5su/
 --  ... spacesaving_algorithm_in_haskell_approximate_the/
 
-instance Ord a => StreamSummary (M.Map a Integer) a where
+-- see section 5 of http://www.haskell.org/haskellwiki/Type_families
+-- re: Type synonym families
+-- This can also be done with fundeps: `class StreamSummary s a | s -> a`
+-- but I find the relationships to be more explicit when reading the code
+-- with type synonym families.
+class StreamSummary s where
+  type Elem s
+  size :: s -> Int
+  member :: Elem s -> s -> Bool
+  insert :: s -> Elem s -> s
+  incr :: s -> Elem s -> s
+  updateLowest :: s -> Elem s -> s
+  update :: Int -> s -> Elem s -> s
+  update k ss x
+      | member x ss = incr ss x
+      | size ss < k = insert ss x
+      | otherwise   = updateLowest ss x
+
+instance Ord a => StreamSummary (M.Map a Integer) where
+  type Elem (M.Map a Integer) = a
   size = M.size
   member = M.member
   insert m x = M.insert x 1 m
@@ -46,15 +53,18 @@ instance Ord a => StreamSummary (M.Map a Integer) a where
       minimum' :: (Ord a) => M.Map k a -> (k, a)
       minimum' = minimumBy comp . M.toList
 
-type MapSummary a = M.Map a Integer
+-- | It is now legal to do specialize on the value type like this:
+-- instance StreamSummary (M.Map Int Integer) where
+--   type Elem (M.Map Int Integer) = Int
+--   ...
 
-spaceSavingOnList :: (StreamSummary ss a) => ss -> Int -> [a] -> ss
+spaceSavingOnList :: StreamSummary s => s -> Int -> [Elem s] -> s
 spaceSavingOnList ss0 k = foldl' (update k) ss0
 
-spaceSavingScan :: (StreamSummary ss a) => ss -> Int -> [a] -> [ss]
+spaceSavingScan :: StreamSummary s => s -> Int -> [Elem s] -> [s]
 spaceSavingScan ss0 k = (drop 1) . scanl (update k) ss0
 
-spaceSavingOnPipe :: (Monad m, StreamSummary s a) => s -> Int -> Proxy () a () s m b
+spaceSavingOnPipe :: (Monad m, StreamSummary s) => s -> Int -> Proxy () (Elem s) () s m r
 spaceSavingOnPipe ss0 k = go ss0
   where
     step = update k
@@ -63,7 +73,8 @@ spaceSavingOnPipe ss0 k = go ss0
       yield ss'
       go ss'
 
-spaceSavingOnPipeST :: (St.MonadState s m, StreamSummary s a) => Int -> Proxy () a () s m b
+spaceSavingOnPipeST ::
+  (St.MonadState s m, StreamSummary s) => Int -> Proxy () (Elem s) () s m r
 spaceSavingOnPipeST k = go
   where
     step = update k
@@ -75,11 +86,13 @@ spaceSavingOnPipeST k = go
 
 main :: IO ()
 main = do
-  let input = words "aa bb ab aa aa cc dd cc"
-      ss0 = M.empty :: MapSummary String
-      k = 3
-  print $ spaceSavingOnList ss0 k $ input
-  print $ spaceSavingScan ss0 k $ input
+  let input = words "aa bb ab aa aa cc dd cc ab ac da dc dc"
+      ss0 = M.empty :: M.Map String Integer
+      k = 5
+  -- single output
+  print $ spaceSavingOnList ss0 k input
+  -- remaining results should look the same
+  runEffect $ each (spaceSavingScan ss0 k input) >-> Pipes.print
   runEffect $ each input >-> spaceSavingOnPipe ss0 k >-> Pipes.print
   (`St.evalStateT` ss0) . runEffect $ each input >-> spaceSavingOnPipeST k >-> Pipes.print
   -- Pipes.evalStateP ss0 ...
