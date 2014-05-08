@@ -7,7 +7,7 @@ module Main where
 import qualified Data.Map.Lazy as M
 import Data.List (minimumBy, foldl')
 
-import qualified "mtl" Control.Monad.State as St
+import qualified "mtl" Control.Monad.State.Strict as St
 
 import Pipes
 import qualified Pipes.Prelude as Pipes
