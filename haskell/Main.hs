@@ -62,7 +62,11 @@ spaceSavingScan :: StreamSummary s => s -> Int -> [Elem s] -> [s]
 spaceSavingScan ss0 k = (drop 1) . scanl (update k) ss0
 
 spaceSavingOnPipe :: (Monad m, StreamSummary s) => s -> Int -> Pipe (Elem s) s m r
-spaceSavingOnPipe ss0 k = go ss0
+spaceSavingOnPipe ss0 k = Pipes.scan (update k) ss0 id
+
+spaceSavingOnPipeManual
+  :: (Monad m, StreamSummary s) => s -> Int -> Pipe (Elem s) s m r
+spaceSavingOnPipeManual ss0 k = go ss0
   where
     step = update k
     go ss = do
@@ -91,5 +95,6 @@ main = do
   -- remaining results should look the same
   runEffect $ each (spaceSavingScan ss0 k input) >-> Pipes.print
   runEffect $ each input >-> spaceSavingOnPipe ss0 k >-> Pipes.print
+  runEffect $ each input >-> spaceSavingOnPipeManual ss0 k >-> Pipes.print
   (`St.evalStateT` ss0) . runEffect $ each input >-> spaceSavingOnPipeST k >-> Pipes.print
   -- Pipes.evalStateP ss0 ...
