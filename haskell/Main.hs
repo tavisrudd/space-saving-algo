@@ -72,7 +72,7 @@ spaceSavingOnPipeManual ss0 k = go ss0
     go ss = do
       ss' <- step ss `fmap` await
       yield ss'
-      go ss'
+      go $! ss'
 
 spaceSavingOnPipeST ::
   (St.MonadState s m, StreamSummary s) => Int -> Pipe (Elem s) s m r
