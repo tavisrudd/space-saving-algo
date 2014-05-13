@@ -55,18 +55,19 @@ instance Ord a => StreamSummary (M.Map a Integer) where
 --   type Elem (M.Map Int Integer) = Int
 --   ...
 
-spaceSavingOnList :: StreamSummary s => s -> Int -> [Elem s] -> s
-spaceSavingOnList ss0 k = foldl' (update k) ss0
+spaceSavingOnList :: StreamSummary s => Int -> s -> [Elem s] -> s
+spaceSavingOnList = foldl' . update
 
-spaceSavingScan :: StreamSummary s => s -> Int -> [Elem s] -> [s]
-spaceSavingScan ss0 k = (drop 1) . scanl (update k) ss0
+spaceSavingScan :: StreamSummary s => Int -> s -> [Elem s] -> [s]
+spaceSavingScan k ss0 = (drop 1) . scanl (update k) ss0
 
-spaceSavingOnPipe :: (Monad m, StreamSummary s) => s -> Int -> Pipe (Elem s) s m r
-spaceSavingOnPipe ss0 k = Pipes.scan (update k) ss0 id >-> Pipes.drop 1
+spaceSavingOnPipe :: (Monad m, StreamSummary s) => Int -> s -> Pipe (Elem s) s m r
+spaceSavingOnPipe k ss0 = Pipes.scan (update k) ss0 id >-> Pipes.drop 1
 
+-- uglier versions explicit state management / recursion
 spaceSavingOnPipeManual
-  :: (Monad m, StreamSummary s) => s -> Int -> Pipe (Elem s) s m r
-spaceSavingOnPipeManual ss0 k = go ss0
+  :: (Monad m, StreamSummary s) => Int -> s -> Pipe (Elem s) s m r
+spaceSavingOnPipeManual k ss0 = go ss0
   where
     step = update k
     go ss = do
@@ -91,10 +92,10 @@ main = do
       ss0 = M.empty :: M.Map String Integer
       k = 5
   -- single output
-  print $ spaceSavingOnList ss0 k input
+  print $ spaceSavingOnList k ss0 input
   -- remaining results should look the same
-  runEffect $ each (spaceSavingScan ss0 k input) >-> Pipes.print
-  runEffect $ each input >-> spaceSavingOnPipe ss0 k >-> Pipes.print
-  runEffect $ each input >-> spaceSavingOnPipeManual ss0 k >-> Pipes.print
+  runEffect $ each (spaceSavingScan k ss0 input) >-> Pipes.print
+  runEffect $ each input >-> spaceSavingOnPipe k ss0 >-> Pipes.print
+  runEffect $ each input >-> spaceSavingOnPipeManual k ss0 >-> Pipes.print
   (`St.evalStateT` ss0) . runEffect $ each input >-> spaceSavingOnPipeST k >-> Pipes.print
   -- Pipes.evalStateP ss0 ...
